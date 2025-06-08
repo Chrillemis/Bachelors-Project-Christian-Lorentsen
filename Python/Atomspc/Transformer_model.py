@@ -55,31 +55,46 @@ import keras
 from keras_hub.layers import TransformerEncoder, TransformerDecoder
 def def_model(
         EMBED_DIM = 64,          # Projection dimension for time-series features
-        INTERMEDIATE_DIM = 64, #128  # Transformer feedforward dimension
+        INTERMEDIATE_DIM = 256, #128  # Transformer feedforward dimension
         NUM_HEADS = 4,           # Number of attention heads
         ENC_TIMESTEPS = 5000,     # Input sequence length (adjust to your data)
         DEC_TIMESTEPS = 5000    # Output sequence length (adjust to your data)
 ):
+    class PositionalEncoding(keras.layers.Layer):
+        def __init__(self, sequence_length, output_dim, **kwargs):
+            super().__init__(**kwargs)
+            self.position_embedding = keras.layers.Embedding(
+                input_dim=sequence_length, output_dim=output_dim
+            )
+        
+        def call(self, inputs):
+            positions = tf.range(start=0, limit=tf.shape(inputs)[1], delta=1)
+            position_embeddings = self.position_embedding(positions)
+            return inputs + position_embeddings
+        
+    
     # Encoder Architecture
     encoder_inputs = keras.Input(shape=(ENC_TIMESTEPS, 1))
     x = keras.layers.Dense(EMBED_DIM)(encoder_inputs)  # Project to transformer dim
-    # x = PositionalEncoding(ENC_TIMESTEPS, EMBED_DIM)(x)
+    x = PositionalEncoding(ENC_TIMESTEPS, EMBED_DIM)(x)
     encoder_outputs = TransformerEncoder(
         intermediate_dim=INTERMEDIATE_DIM,
         num_heads=NUM_HEADS,
         activation = "gelu",
-        layer_norm_epsilon = 1e-3
+        layer_norm_epsilon = 1e-3,
+        dropout = 0.1
     )(x)
 
     # Decoder Architecture
     decoder_inputs = keras.Input(shape=(DEC_TIMESTEPS, 1))
     x = keras.layers.Dense(EMBED_DIM)(decoder_inputs)  # Project to transformer dim
-    # x = PositionalEncoding(DEC_TIMESTEPS, EMBED_DIM)(x)
+    x = PositionalEncoding(DEC_TIMESTEPS, EMBED_DIM)(x)
     decoder_outputs = TransformerDecoder(
         intermediate_dim=INTERMEDIATE_DIM,
         num_heads=NUM_HEADS,
         activation = "gelu",
-        layer_norm_epsilon = 1e-3
+        layer_norm_epsilon = 1e-3,
+        dropout = 0.1
 
     )(
         decoder_sequence=x,
@@ -100,7 +115,7 @@ import pickle
 def train_model(
         initial_learning_rate = 1e-5,
         warmup_steps = 1000,
-        target_learning_rate = 1e-3,
+        target_learning_rate = 1e-4,
         decay_steps = 5000*3,
         batch_size = 128,
         epochs = 100,
@@ -116,11 +131,11 @@ def train_model(
 ):
     # dataset, test_dataset = create_dataset(**dataset_args)
 
-    lr_warmup_decayed_fn = tf.keras.optimizers.schedules.CosineDecay(
-        initial_learning_rate, decay_steps, warmup_target=target_learning_rate,
-        warmup_steps=warmup_steps
-    )
-    optimizer = tf.keras.optimizers.AdamW(learning_rate=lr_warmup_decayed_fn)
+    # lr_warmup_decayed_fn = tf.keras.optimizers.schedules.CosineDecay(
+    #     initial_learning_rate, decay_steps, warmup_target=target_learning_rate,
+    #     warmup_steps=warmup_steps
+    # )
+    optimizer = tf.keras.optimizers.AdamW(learning_rate=target_learning_rate)#lr_warmup_decayed_fn)
 
     transformer.compile(
         optimizer=optimizer, loss="mse"
@@ -134,7 +149,8 @@ def train_model(
         epochs=epochs,
         # validation_split=0.2,
         validation_data=val_dataset,
-        callbacks=[callback]
+        callbacks=[callback],
+        verbose = 0
     )
     # Save model
     transformer.save(save_path)
@@ -161,26 +177,22 @@ def train_lots_models(tdms_file, Git_Folder, dataset_folder):
     type_data = [x.split('10s')[1].split('\'')[0] for x in X_cols]
 
     for i in range(len(X_cols)):
-        train_dataset, test_dataset, val_dataset = create_dataset(
-            seq_length = 5000, X = Data[X_cols[i]].dropna().to_numpy(), Y = Data[Y_cols[i]].dropna().to_numpy()
-        )
-        train_dataset.save(os.path.join(dataset_folder, f"many_train_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
-        test_dataset.save(os.path.join(dataset_folder, f"many_test_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
-        val_dataset.save(os.path.join(dataset_folder, f"many_val_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
-        # transformer = def_model(
-        #     EMBED_DIM = 64,          
-        #     INTERMEDIATE_DIM = 64, 
-        #     NUM_HEADS = 4,         
-        #     ENC_TIMESTEPS = 5000, 
-        #     DEC_TIMESTEPS = 5000 
+        # train_dataset, test_dataset, val_dataset = create_dataset(
+        #     seq_length = 5000, X = Data[X_cols[i]].dropna().to_numpy(), Y = Data[Y_cols[i]].dropna().to_numpy()
         # )
-        # train_model(
-        #     train_dataset = train_dataset,
-        #     val_dataset = val_dataset,
-        #     save_path = os.path.join(Git_Folder, "Python", 'Atomspc', "Transformer_models", f"{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}.keras"),
-        #     pickle_path = os.path.join(dataset_folder, f"history_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}.pkl"),
-        #     plt_path = os.path.join(Git_Folder, "Python", 'Atomspc', "Training_hist", f"loss_hist_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}.svg"),
-        #     type_model = type_data[i] + "_" + os.path.split(tdms_file)[-1].split("_2025")[0]
-        # )
-
+        # train_dataset.save(os.path.join(dataset_folder, f"many_train_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
+        # test_dataset.save(os.path.join(dataset_folder, f"many_test_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
+        # val_dataset.save(os.path.join(dataset_folder, f"many_val_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
+        model_name = type_data[i] + "_" + os.path.split(tdms_file)[-1].split("_2025")[0]
+        try:
+            train_model(
+                train_dataset = tf.data.Dataset.load(os.path.join(dataset_folder, f"many_train_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}")),#train_dataset,
+                val_dataset = tf.data.Dataset.load(os.path.join(dataset_folder, f"many_val_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}")),#val_dataset,
+                save_path = os.path.join(Git_Folder, "Python", 'Atomspc', "Transformer_models", f"{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}.keras"),
+                pickle_path = os.path.join(dataset_folder, f"history_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}.pkl"),
+                plt_path = os.path.join(Git_Folder, "Python", 'Atomspc', "Training_hist", f"loss_hist_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}.svg"),
+                type_model = model_name
+            )
+        except NameError:
+            print("Gone wrong with:", model_name)
 
