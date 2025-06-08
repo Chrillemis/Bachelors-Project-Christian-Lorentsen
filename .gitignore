@@ -1,3 +1,5 @@
 *.tdms
 *.tdms_index
 *.csv
+!process_var_mean.csv
+!OU_var_mean.csv
