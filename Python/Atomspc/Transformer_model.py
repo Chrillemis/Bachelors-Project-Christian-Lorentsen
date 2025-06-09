@@ -177,17 +177,17 @@ def train_lots_models(tdms_file, Git_Folder, dataset_folder):
     type_data = [x.split('10s')[1].split('\'')[0] for x in X_cols]
 
     for i in range(len(X_cols)):
-        # train_dataset, test_dataset, val_dataset = create_dataset(
-        #     seq_length = 5000, X = Data[X_cols[i]].dropna().to_numpy(), Y = Data[Y_cols[i]].dropna().to_numpy()
-        # )
-        # train_dataset.save(os.path.join(dataset_folder, f"many_train_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
-        # test_dataset.save(os.path.join(dataset_folder, f"many_test_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
-        # val_dataset.save(os.path.join(dataset_folder, f"many_val_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
+        train_dataset, test_dataset, val_dataset = create_dataset(
+            seq_length = 5000, X = Data[X_cols[i]].dropna().to_numpy(), Y = Data[Y_cols[i]].dropna().to_numpy()
+        )
+        train_dataset.save(os.path.join(dataset_folder, f"many_train_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
+        test_dataset.save(os.path.join(dataset_folder, f"many_test_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
+        val_dataset.save(os.path.join(dataset_folder, f"many_val_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
         model_name = type_data[i] + "_" + os.path.split(tdms_file)[-1].split("_2025")[0]
         try:
             train_model(
-                train_dataset = tf.data.Dataset.load(os.path.join(dataset_folder, f"many_train_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}")),#train_dataset,
-                val_dataset = tf.data.Dataset.load(os.path.join(dataset_folder, f"many_val_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}")),#val_dataset,
+                train_dataset = train_dataset,
+                val_dataset = val_dataset,
                 save_path = os.path.join(Git_Folder, "Python", 'Atomspc', "Transformer_models", f"{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}.keras"),
                 pickle_path = os.path.join(dataset_folder, f"history_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}.pkl"),
                 plt_path = os.path.join(Git_Folder, "Python", 'Atomspc', "Training_hist", f"loss_hist_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}.svg"),
@@ -196,3 +196,4 @@ def train_lots_models(tdms_file, Git_Folder, dataset_folder):
         except NameError:
             print("Gone wrong with:", model_name)
 
+# def test_model():
