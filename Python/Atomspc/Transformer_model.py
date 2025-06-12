@@ -122,7 +122,7 @@ def train_model(
         save_path = "Transformer_models",
         train_dataset = tf.data.Dataset,
         val_dataset = tf.data.Dataset,
-        pickle_path = "test.pkl",
+        hist_path = "test.csv",
         plt_path = "test.svg",
         type_model = "test",
         transformer = def_model()
@@ -141,7 +141,7 @@ def train_model(
         optimizer=optimizer, loss="mse"
     )
 
-    callback = keras.callbacks.EarlyStopping(monitor='loss', patience=10)
+    callback = keras.callbacks.EarlyStopping(monitor='loss', patience=3, min_delta=0.001)
 
     history = transformer.fit(
         train_dataset,
@@ -150,14 +150,16 @@ def train_model(
         # validation_split=0.2,
         validation_data=val_dataset,
         callbacks=[callback],
-        verbose = 0
+        verbose = 2
     )
     # Save model
     transformer.save(save_path)
     
-    file = open(pickle_path, 'wb')
-    pickle.dump(history, file)
-    file.close()
+    # file = open(pickle_path, 'wb')
+    # pickle.dump(history, file)
+    # file.close()
+    pd.DataFrame(history.history).to_csv(hist_path)
+
 
     plt.plot(history.history['loss'], label='train_loss')
     plt.plot(history.history['val_loss'], label='val_loss')
