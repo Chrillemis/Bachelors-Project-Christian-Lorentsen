@@ -122,7 +122,7 @@ def train_model(
         save_path = "Transformer_models",
         train_dataset = tf.data.Dataset,
         val_dataset = tf.data.Dataset,
-        pickle_path = "test.pkl",
+        hist_path = "test.csv",
         plt_path = "test.svg",
         type_model = "test",
         transformer = def_model()
@@ -141,7 +141,7 @@ def train_model(
         optimizer=optimizer, loss="mse"
     )
 
-    callback = keras.callbacks.EarlyStopping(monitor='loss', patience=10)
+    callback = keras.callbacks.EarlyStopping(monitor='loss', patience=3, min_delta=0.001)
 
     history = transformer.fit(
         train_dataset,
@@ -150,14 +150,16 @@ def train_model(
         # validation_split=0.2,
         validation_data=val_dataset,
         callbacks=[callback],
-        verbose = 0
+        verbose = 2
     )
     # Save model
     transformer.save(save_path)
     
-    file = open(pickle_path, 'wb')
-    pickle.dump(history, file)
-    file.close()
+    # file = open(pickle_path, 'wb')
+    # pickle.dump(history, file)
+    # file.close()
+    pd.DataFrame(history.history).to_csv(hist_path)
+
 
     plt.plot(history.history['loss'], label='train_loss')
     plt.plot(history.history['val_loss'], label='val_loss')
@@ -177,17 +179,17 @@ def train_lots_models(tdms_file, Git_Folder, dataset_folder):
     type_data = [x.split('10s')[1].split('\'')[0] for x in X_cols]
 
     for i in range(len(X_cols)):
-        # train_dataset, test_dataset, val_dataset = create_dataset(
-        #     seq_length = 5000, X = Data[X_cols[i]].dropna().to_numpy(), Y = Data[Y_cols[i]].dropna().to_numpy()
-        # )
-        # train_dataset.save(os.path.join(dataset_folder, f"many_train_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
-        # test_dataset.save(os.path.join(dataset_folder, f"many_test_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
-        # val_dataset.save(os.path.join(dataset_folder, f"many_val_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
+        train_dataset, test_dataset, val_dataset = create_dataset(
+            seq_length = 5000, X = Data[X_cols[i]].dropna().to_numpy(), Y = Data[Y_cols[i]].dropna().to_numpy()
+        )
+        train_dataset.save(os.path.join(dataset_folder, f"many_train_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
+        test_dataset.save(os.path.join(dataset_folder, f"many_test_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
+        val_dataset.save(os.path.join(dataset_folder, f"many_val_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}"))
         model_name = type_data[i] + "_" + os.path.split(tdms_file)[-1].split("_2025")[0]
         try:
             train_model(
-                train_dataset = tf.data.Dataset.load(os.path.join(dataset_folder, f"many_train_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}")),#train_dataset,
-                val_dataset = tf.data.Dataset.load(os.path.join(dataset_folder, f"many_val_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}")),#val_dataset,
+                train_dataset = train_dataset,
+                val_dataset = val_dataset,
                 save_path = os.path.join(Git_Folder, "Python", 'Atomspc', "Transformer_models", f"{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}.keras"),
                 pickle_path = os.path.join(dataset_folder, f"history_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}.pkl"),
                 plt_path = os.path.join(Git_Folder, "Python", 'Atomspc', "Training_hist", f"loss_hist_{type_data[i]}_{os.path.split(tdms_file)[-1].split("_2025")[0]}.svg"),
@@ -196,3 +198,4 @@ def train_lots_models(tdms_file, Git_Folder, dataset_folder):
         except NameError:
             print("Gone wrong with:", model_name)
 
+# def test_model():
